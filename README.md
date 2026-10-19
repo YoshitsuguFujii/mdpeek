@@ -56,32 +56,6 @@ MDPEEK_OUTPUT_DIR=/tmp/mdpeek-previews mdpeek ./notes/design.md
 
 CSSと、先頭へ戻るボタンに必要な短いスクリプトはHTML内に含めています。変換時に外部CDNを呼ばず、プレビュー用サーバーも起動しません。
 
-## Claude Code のフック（任意）
-
-[フックのスクリプト](hooks/open-markdown-preview.sh)を設定すると、Claude Code の `Write`・`Edit` で対象の Markdown を更新したときに `mdpeek` を起動できます。フックには `jq` が必要で、Claude Code から見える `PATH` に `mdpeek` と `jq` を置いてください。
-
-フックは作業リポジトリと `/tmp/claude-<uid>/<project>/<session>/scratchpad/` 以下の Markdown を対象にします。`CLAUDE.md`、`SKILL.md`、`AGENTS.md`、`~/.claude`、chezmoi の source は除外します。
-
-スクリプトを配置する例です。この操作はリポジトリを clone して、そのルートで実行します。既存の同名ファイルがある場合は、上書き前に内容を確認してください。
-
-```sh
-mkdir -p "$HOME/.claude/scripts"
-install -m 755 hooks/open-markdown-preview.sh "$HOME/.claude/scripts/open-markdown-preview.sh"
-```
-
-`~/.claude/settings.json` の `hooks.PostToolUse` 配列へ次の要素を追加します。他のフック設定は残してください。
-
-```json
-{
-  "matcher": "Write|Edit",
-  "hooks": [
-    { "type": "command", "command": "~/.claude/scripts/open-markdown-preview.sh" }
-  ]
-}
-```
-
-chezmoiでフックを管理している場合は、配置先を直接編集せず、chezmoiのsourceへ同じスクリプトを反映して `chezmoi diff` と `chezmoi apply` で同期します。既存のフックを置換する場合も、設定を確認してから切り替えてください。
-
 ## 安全性と制限
 
 - HTML は一時ファイルへ書き終えてから公開し、同時実行はロックで順序を決めます。入力エラー時に途中までのHTMLを公開しません。
