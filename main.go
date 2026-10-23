@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
+	"flag"
 	"fmt"
 	"html"
 	"html/template"
@@ -77,7 +78,7 @@ const pageSource = `<!doctype html>
 <style>{{.CSS}}</style>
 </head>
 <body id="mdpeek-top">
-<header><strong>{{.Title}}</strong><small>{{.Path}}</small></header>
+<header><strong>{{.Filename}}</strong><small>{{.Path}}</small></header>
 <main>{{.Body}}</main>
 <a class="back-to-top" href="#mdpeek-top" hidden aria-label="先頭へ戻る">↑</a>
 <script>{{.Script}}</script>
@@ -89,10 +90,19 @@ var pageTemplate = template.Must(template.New("preview").Parse(pageSource))
 var localURLAttribute = regexp.MustCompile("(<a href|<img src)=\"([^\"]*)\"")
 
 func run(args []string, stdout io.Writer) error {
-	if len(args) != 1 {
-		return fmt.Errorf("usage: mdpeek <file.md>")
+	flags := flag.NewFlagSet("mdpeek", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	title := flags.String("title", "", "HTML page title")
+	if err := flags.Parse(args); err != nil || flags.NArg() != 1 {
+		return fmt.Errorf("usage: mdpeek [--title TITLE] <file.md>")
 	}
-	path, err := filepath.Abs(args[0])
+	titleSpecified := false
+	flags.Visit(func(option *flag.Flag) {
+		if option.Name == "title" {
+			titleSpecified = true
+		}
+	})
+	path, err := filepath.Abs(flags.Arg(0))
 	if err != nil {
 		return err
 	}
@@ -148,7 +158,11 @@ func run(args []string, stdout io.Writer) error {
 	}
 	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
 
-	page, err := render(path, source)
+	pageTitle := filepath.Base(path)
+	if titleSpecified {
+		pageTitle = *title
+	}
+	page, err := render(path, source, pageTitle)
 	if err != nil {
 		return err
 	}
@@ -163,7 +177,7 @@ func run(args []string, stdout io.Writer) error {
 	return err
 }
 
-func render(path string, source []byte) ([]byte, error) {
+func render(path string, source []byte, title string) ([]byte, error) {
 	md := goldmark.New(goldmark.WithExtensions(extension.GFM), goldmark.WithParserOptions(parser.WithAutoHeadingID()))
 	var body bytes.Buffer
 	if err := md.Convert(source, &body); err != nil {
@@ -180,17 +194,19 @@ func render(path string, source []byte) ([]byte, error) {
 	})
 	data := struct {
 		Title      string
+		Filename   string
 		Path       string
 		Body       template.HTML
 		CSS        template.CSS
 		Script     template.JS
 		ScriptHash string
 	}{
-		Title:  filepath.Base(path),
-		Path:   path,
-		Body:   template.HTML(content), // goldmark omits raw HTML and unsafe links by default.
-		CSS:    template.CSS(stylesheet),
-		Script: template.JS(backToTopScript),
+		Title:    title,
+		Filename: filepath.Base(path),
+		Path:     path,
+		Body:     template.HTML(content), // goldmark omits raw HTML and unsafe links by default.
+		CSS:      template.CSS(stylesheet),
+		Script:   template.JS(backToTopScript),
 		ScriptHash: func() string {
 			digest := sha256.Sum256([]byte(backToTopScript))
 			return base64.StdEncoding.EncodeToString(digest[:])

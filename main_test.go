@@ -83,9 +83,39 @@ func TestMarkdownPreviewIncludesContentAndSource(t *testing.T) {
 	}
 }
 
+func TestTitleOptionSetsBrowserTabTitleAndKeepsSourceNameVisible(t *testing.T) {
+	root, _ := setupCLI(t)
+	path := filepath.Join(root, "notes.md")
+	markdown(t, path, "# Notes")
+	var stdout bytes.Buffer
+	if err := run([]string{"--title", "設計 <A&B>", path}, &stdout); err != nil {
+		t.Fatal(err)
+	}
+	page := preview(t, strings.TrimSpace(stdout.String()))
+	if !strings.Contains(page, "<title>設計 &lt;A&amp;B&gt;</title>") {
+		t.Fatal("custom title was not safely displayed in the browser tab")
+	}
+	if !strings.Contains(page, "<header><strong>notes.md</strong>") {
+		t.Fatal("source filename was not displayed above the preview")
+	}
+}
+
+func TestEmptyTitleOptionSetsAnEmptyBrowserTabTitle(t *testing.T) {
+	root, _ := setupCLI(t)
+	path := filepath.Join(root, "notes.md")
+	markdown(t, path, "# Notes")
+	var stdout bytes.Buffer
+	if err := run([]string{"--title", "", path}, &stdout); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(preview(t, strings.TrimSpace(stdout.String())), "<title></title>") {
+		t.Fatal("explicitly empty title was replaced with the filename")
+	}
+}
+
 func TestUsageNamesMdpeekCommand(t *testing.T) {
 	err := run(nil, &bytes.Buffer{})
-	if err == nil || err.Error() != "usage: mdpeek <file.md>" {
+	if err == nil || err.Error() != "usage: mdpeek [--title TITLE] <file.md>" {
 		t.Fatalf("unexpected usage error: %v", err)
 	}
 }
@@ -96,7 +126,7 @@ func TestInvalidInputPreservesPreview(t *testing.T) {
 	markdown(t, valid, "# Keep")
 	snapshot := generatePreview(t, valid)
 	original := preview(t, snapshot)
-	for _, args := range [][]string{{}, {filepath.Join(root, "missing.md")}, {root}, {valid, valid}} {
+	for _, args := range [][]string{{}, {filepath.Join(root, "missing.md")}, {root}, {valid, valid}, {"--title"}, {"--unknown", valid}} {
 		if err := run(args, &bytes.Buffer{}); err == nil {
 			t.Errorf("expected input error for %v", args)
 		}

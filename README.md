@@ -36,9 +36,12 @@ go build -o mdpeek .
 mdpeek README.md
 mdpeek ./docs/仕様.md
 mdpeek /absolute/path/to/notes.markdown
+mdpeek --title "レビュー資料" ./notes/design.md
 ```
 
 引数には UTF-8 の `.md` または `.markdown` ファイルを1つ指定します。コマンドは生成した HTML のパスを表示して終了します。Markdownを編集して再実行すると、**毎回新しいタブ**と HTML が作られます。前のタブを再読み込みしても、当時の Markdown 本文が残ります。
+
+`--title` をファイルの前に指定すると、ブラウザのタブに表示する HTML のタイトルを変更できます。省略した場合はファイル名を使います。プレビュー上部には常に元のファイル名を表示します。
 
 Chromeが未起動、またはウィンドウがない場合は、背景でChromeを開きます。起動済みなら新しいタブを追加します。初回は macOS が Chrome の操作許可を求める場合があります。
 
